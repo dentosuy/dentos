@@ -1,0 +1,138 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function: verificar que el usuario está autenticado
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // Helper function: verificar que el usuario es admin
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.email == 'manuelquartinoarocena@gmail.com';
+    }
+    
+    // Helper function: verificar que el usuario es el dueño del documento
+    function isOwner(dentistId) {
+      return isSignedIn() && request.auth.uid == dentistId;
+    }
+    
+    // Helper function: validar datos requeridos del paciente
+    function isValidPatient() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['firstName', 'lastName', 'phone', 'dateOfBirth', 'dentistId'])
+        && data.firstName is string && data.firstName.size() >= 2 && data.firstName.size() <= 100
+        && data.lastName is string && data.lastName.size() >= 2 && data.lastName.size() <= 100
+        && data.phone is string && data.phone.size() >= 7 && data.phone.size() <= 20
+        && data.dateOfBirth is timestamp
+        && data.dentistId is string;
+    }
+    
+    // Helper function: validar datos de cita
+    function isValidAppointment() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['patientId', 'date', 'duration', 'type', 'status', 'dentistId'])
+        && data.patientId is string
+        && data.date is timestamp
+        && data.duration is int && data.duration > 0 && data.duration <= 480
+        && data.type in ['consultation', 'cleaning', 'treatment', 'emergency', 'other']
+        && data.status in ['scheduled', 'confirmed', 'completed', 'cancelled']
+        && data.dentistId is string;
+    }
+    
+    // Helper function: validar item de stock
+    function isValidStockItem() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['name', 'category', 'quantity', 'unit', 'minQuantity', 'dentistId'])
+        && data.name is string && data.name.size() >= 2 && data.name.size() <= 200
+        && data.category in ['material', 'instrument', 'medication', 'consumable', 'other']
+        && data.quantity is number && data.quantity >= 0
+        && data.unit is string && data.unit.size() >= 1 && data.unit.size() <= 50
+        && data.minQuantity is number && data.minQuantity >= 0
+        && data.dentistId is string;
+    }
+    
+    // Helper function: validar transacción
+    function isValidTransaction() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['type', 'amount', 'category', 'concept', 'date', 'paymentMethod', 'status', 'dentistId'])
+        && data.type in ['income', 'expense']
+        && data.amount is number && data.amount > 0 && data.amount < 10000000
+        && data.category is string && data.category.size() >= 2 && data.category.size() <= 100
+        && data.concept is string && data.concept.size() >= 2 && data.concept.size() <= 500
+        && data.date is timestamp
+        && data.paymentMethod in ['cash', 'card', 'transfer', 'other']
+        && data.status in ['paid', 'pending', 'partial']
+        && data.dentistId is string;
+    }
+    
+    // Reglas para perfil de dentistas
+    match /dentists/{dentistId} {
+      allow read: if isOwner(dentistId) || isAdmin();
+      allow create: if isOwner(dentistId);
+      allow update: if isOwner(dentistId) || isAdmin();
+      allow delete: if false; // No permitir eliminar perfiles
+    }
+    
+    // Reglas para pacientes
+    match /patients/{patientId} {
+      allow read: if isSignedIn() && resource.data.dentistId == request.auth.uid;
+      allow create: if isSignedIn() && isValidPatient() && request.resource.data.dentistId == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.dentistId == request.auth.uid && isValidPatient();
+      allow delete: if isSignedIn() && resource.data.dentistId == request.auth.uid;
+    }
+    
+    // Reglas para citas
+    match /appointments/{appointmentId} {
+      allow read: if isSignedIn() && resource.data.dentistId == request.auth.uid;
+      allow create: if isSignedIn() && isValidAppointment() && request.resource.data.dentistId == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.dentistId == request.auth.uid && isValidAppointment();
+      allow delete: if isSignedIn() && resource.data.dentistId == request.auth.uid;
+    }
+    
+    // Reglas para stock
+    match /stock/{stockItemId} {
+      allow read: if isSignedIn() && resource.data.dentistId == request.auth.uid;
+      allow create: if isSignedIn() && isValidStockItem() && request.resource.data.dentistId == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.dentistId == request.auth.uid && isValidStockItem();
+      allow delete: if isSignedIn() && resource.data.dentistId == request.auth.uid;
+    }
+    
+    // Reglas para materiales de citas
+    match /appointmentMaterials/{materialId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+    
+    // Reglas para transacciones financieras
+    match /transactions/{transactionId} {
+      allow read: if isSignedIn() && resource.data.dentistId == request.auth.uid;
+      allow create: if isSignedIn() && isValidTransaction() && request.resource.data.dentistId == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.dentistId == request.auth.uid && isValidTransaction();
+      allow delete: if isSignedIn() && resource.data.dentistId == request.auth.uid;
+    }
+    
+    // Reglas para historias clínicas
+    match /medicalHistories/{historyId} {
+      allow read: if isSignedIn() && resource.data.dentistId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.dentistId == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.dentistId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.dentistId == request.auth.uid;
+    }
+    
+    // Reglas para visitas
+    match /visits/{visitId} {
+      allow read: if isSignedIn() && resource.data.dentistId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.dentistId == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.dentistId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.dentistId == request.auth.uid;
+    }
+    
+    // Denegar todo lo demás
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
