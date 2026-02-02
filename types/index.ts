@@ -50,6 +50,7 @@ export interface Patient {
   dateOfBirth: Date
   address?: string
   medicalHistory?: string
+  groupName?: string // Nombre del grupo al que pertenece (ej: "Colegio San José")
   createdAt: Date
   updatedAt: Date
 }

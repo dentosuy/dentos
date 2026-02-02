@@ -25,6 +25,11 @@ export function PatientCard({ patient }: PatientCardProps) {
                 {patient.firstName} {patient.lastName}
               </CardTitle>
               <p className="text-sm text-gray-500">{age} años</p>
+              {patient.groupName && (
+                <p className="text-xs text-primary-600 font-medium mt-1 flex items-center gap-1">
+                  <span>👥</span> {patient.groupName}
+                </p>
+              )}
             </div>
           </div>
         </CardHeader>

@@ -102,11 +102,18 @@ export default function PatientsPage() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              <Link href="/patients/new">
-                <Button size="lg">
-                  ➕ Agregar Paciente
-                </Button>
-              </Link>
+              <div className="flex gap-2">
+                <Link href="/patients/group/new">
+                  <Button size="lg" variant="outline" className="border-primary-600 text-primary-600 hover:bg-primary-50">
+                    👥 Agregar Grupo
+                  </Button>
+                </Link>
+                <Link href="/patients/new">
+                  <Button size="lg">
+                    ➕ Agregar Paciente
+                  </Button>
+                </Link>
+              </div>
             </div>
 
             {/* Contador de resultados */}
