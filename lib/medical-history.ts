@@ -34,13 +34,23 @@ export async function saveMedicalHistory(
       }))
     }
 
+    // Filtrar campos undefined para evitar que se eliminen campos en Firestore
+    const cleanedData = Object.entries(processedData).reduce((acc, [key, value]) => {
+      if (value !== undefined) {
+        acc[key] = value
+      }
+      return acc
+    }, {} as any)
+
+    console.log('🔍 Datos a guardar en Firestore:', cleanedData)
+
     // Verificar si ya existe una historia clínica para este paciente
     const existing = await getMedicalHistory(patientId)
 
     if (existing) {
       // Actualizar existente
       await updateDoc(doc(db, 'medicalHistories', existing.id), {
-        ...processedData,
+        ...cleanedData,
         updatedAt: serverTimestamp(),
       })
 
@@ -81,7 +91,7 @@ export async function saveMedicalHistory(
     } else {
       // Crear nueva
       const historyRef = await addDoc(collection(db, 'medicalHistories'), {
-        ...processedData,
+        ...cleanedData,
         dentistId,
         patientId,
         createdAt: serverTimestamp(),
@@ -148,6 +158,11 @@ export async function getMedicalHistory(patientId: string): Promise<MedicalHisto
 
     const historyDoc = querySnapshot.docs[0]
     const data = historyDoc.data()
+
+    console.log('📥 Datos cargados desde Firestore:', {
+      budgetAmount: data.budgetAmount,
+      budgetPayments: data.budgetPayments
+    })
 
     return {
       id: historyDoc.id,
