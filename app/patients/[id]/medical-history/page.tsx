@@ -356,8 +356,16 @@ export default function MedicalHistoryPage() {
     try {
       setSaving(true)
       await saveMedicalHistory(user.uid, patientId, history)
+      
+      // Recargar la historia clínica completa desde Firestore
+      const updatedHistory = await getMedicalHistory(patientId)
+      if (updatedHistory) {
+        setHistory(updatedHistory)
+      }
+      
       toast.success('Historia clínica guardada exitosamente')
     } catch (error) {
+      console.error('Error al guardar historia clínica:', error)
       toast.error('Error al guardar historia clínica')
     } finally {
       setSaving(false)
@@ -374,8 +382,16 @@ export default function MedicalHistoryPage() {
         budgetAmount: history.budgetAmount,
         budgetPayments: history.budgetPayments,
       })
+      
+      // Recargar la historia clínica completa desde Firestore para asegurar que los datos estén sincronizados
+      const updatedHistory = await getMedicalHistory(patientId)
+      if (updatedHistory) {
+        setHistory(updatedHistory)
+      }
+      
       toast.success('Presupuesto guardado exitosamente')
     } catch (error) {
+      console.error('Error al guardar presupuesto:', error)
       toast.error('Error al guardar presupuesto')
     } finally {
       setSavingBudget(false)
