@@ -68,9 +68,14 @@ export default function AppointmentDetailPage() {
           const patientData = await getPatient(appointmentData.patientId)
           setPatient(patientData)
 
-          // Verificar si ya existe una visita para esta cita
-          const existingVisit = await getVisitByAppointment(appointmentId)
-          setVisit(existingVisit)
+          // Verificar si ya existe una visita para esta cita (no debe romper si falla)
+          try {
+            const existingVisit = await getVisitByAppointment(appointmentId)
+            setVisit(existingVisit)
+          } catch (visitError) {
+            console.log('No se pudo cargar visita (puede no existir):', visitError)
+            setVisit(null)
+          }
         }
 
         setStockItems(stockData)
@@ -141,6 +146,16 @@ export default function AppointmentDetailPage() {
 
     const priceAmount = parseFloat(price)
 
+    // Mapear método de pago de español a inglés
+    const paymentMethodMap: Record<string, 'cash' | 'card' | 'transfer' | 'other'> = {
+      'efectivo': 'cash',
+      'transferencia': 'transfer',
+      'tarjeta-debito': 'card',
+      'tarjeta-credito': 'card',
+      'mercadopago': 'transfer',
+      'otro': 'other'
+    }
+
     try {
       setIsSavingPrice(true)
 
@@ -155,8 +170,8 @@ export default function AppointmentDetailPage() {
         category: appointment.type === 'consultation' ? 'consulta' :
                   appointment.type === 'cleaning' ? 'limpieza' :
                   appointment.type === 'treatment' ? 'tratamiento' : 'otro',
-        date: new Date().toISOString(),
-        paymentMethod: paymentMethod,
+        date: new Date(),
+        paymentMethod: paymentMethodMap[paymentMethod] || 'cash',
         status: paymentStatus,
         patientId: appointment.patientId,
         appointmentId: appointmentId,

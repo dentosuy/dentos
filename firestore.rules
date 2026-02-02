@@ -92,7 +92,8 @@ service cloud.firestore {
     
     // Reglas para stock
     match /stock/{stockItemId} {
-      allow read: if isSignedIn() && resource.data.dentistId == request.auth.uid;
+      allow read: if isSignedIn();
+      allow list: if isSignedIn() && request.query.limit <= 1000;
       allow create: if isSignedIn() && isValidStockItem() && request.resource.data.dentistId == request.auth.uid;
       allow update: if isSignedIn() && resource.data.dentistId == request.auth.uid && isValidStockItem();
       allow delete: if isSignedIn() && resource.data.dentistId == request.auth.uid;
@@ -124,7 +125,8 @@ service cloud.firestore {
     
     // Reglas para visitas
     match /visits/{visitId} {
-      allow read: if isSignedIn() && resource.data.dentistId == request.auth.uid;
+      allow read: if isSignedIn();
+      allow list: if isSignedIn() && request.query.limit <= 1000;
       allow create: if isSignedIn() && request.resource.data.dentistId == request.auth.uid;
       allow update: if isSignedIn() && resource.data.dentistId == request.auth.uid;
       allow delete: if isSignedIn() && resource.data.dentistId == request.auth.uid;

@@ -91,6 +91,16 @@ export default function NewExpensePage() {
       return
     }
 
+    // Mapear método de pago de español a inglés
+    const paymentMethodMap: Record<string, 'cash' | 'card' | 'transfer' | 'other'> = {
+      'efectivo': 'cash',
+      'transferencia': 'transfer',
+      'tarjeta-debito': 'card',
+      'tarjeta-credito': 'card',
+      'mercadopago': 'transfer',
+      'otro': 'other'
+    }
+
     try {
       setLoading(true)
       
@@ -101,13 +111,14 @@ export default function NewExpensePage() {
         amount: amount,
         category: formData.category,
         date: new Date(formData.date),
-        paymentMethod: 'cash' as const,
+        paymentMethod: paymentMethodMap[formData.paymentMethod] || 'cash',
         status: formData.status,
         notes: formData.notes.trim() ? sanitizeString(formData.notes.trim()) : undefined
       })
 
       toast.success('Egreso registrado exitosamente')
       router.push('/finances')
+      router.refresh()
     } catch (error) {
       console.error('Error al registrar egreso:', error)
       toast.error('Error al registrar el egreso')
