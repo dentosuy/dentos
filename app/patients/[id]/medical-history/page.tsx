@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { getPatient } from '@/lib/patients'
 import { getMedicalHistory, saveMedicalHistory } from '@/lib/medical-history'
 import { useAuth } from '@/contexts/auth-context'
+import { useToast } from '@/components/ui/toast'
 import type { Patient, MedicalHistory, BudgetPayment } from '@/types'
 import Link from 'next/link'
 import { ArrowLeft, Save, FileText, Plus, Trash2 } from 'lucide-react'
@@ -306,11 +307,13 @@ export default function MedicalHistoryPage() {
   const params = useParams()
   const router = useRouter()
   const { user } = useAuth()
+  const toast = useToast()
   const patientId = params.id as string
   
   const [patient, setPatient] = useState<Patient | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [savingBudget, setSavingBudget] = useState(false)
   const [history, setHistory] = useState<Partial<MedicalHistory>>({
     allergies: [],
     currentMedications: [],
@@ -353,11 +356,29 @@ export default function MedicalHistoryPage() {
     try {
       setSaving(true)
       await saveMedicalHistory(user.uid, patientId, history)
-      alert('Historia clínica guardada exitosamente')
+      toast.success('Historia clínica guardada exitosamente')
     } catch (error) {
-      alert('Error al guardar historia clínica')
+      toast.error('Error al guardar historia clínica')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleSaveBudget = async () => {
+    if (!user) return
+
+    try {
+      setSavingBudget(true)
+      // Guardar solo los campos de presupuesto
+      await saveMedicalHistory(user.uid, patientId, {
+        budgetAmount: history.budgetAmount,
+        budgetPayments: history.budgetPayments,
+      })
+      toast.success('Presupuesto guardado exitosamente')
+    } catch (error) {
+      toast.error('Error al guardar presupuesto')
+    } finally {
+      setSavingBudget(false)
     }
   }
 
@@ -835,15 +856,27 @@ export default function MedicalHistoryPage() {
             <CardHeader>
               <div className="flex justify-between items-center">
                 <CardTitle>Presupuesto:</CardTitle>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={addBudgetPayment}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Agregar Fila
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleSaveBudget}
+                    isLoading={savingBudget}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Save className="w-4 h-4 mr-2" />
+                    Guardar Presupuesto
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={addBudgetPayment}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Agregar Fila
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
