@@ -43,6 +43,7 @@ export async function addTransaction(
       date: data!.date.toDate(),
       paymentMethod: data!.paymentMethod,
       status: data!.status,
+      isPossible: data!.isPossible,
       patientId: data!.patientId,
       appointmentId: data!.appointmentId,
       notes: data!.notes,
@@ -79,6 +80,7 @@ export async function getTransactions(dentistId: string): Promise<Transaction[]>
         date: data.date.toDate(),
         paymentMethod: data.paymentMethod,
         status: data.status,
+        isPossible: data.isPossible,
         patientId: data.patientId,
         appointmentId: data.appointmentId,
         notes: data.notes,
@@ -139,6 +141,7 @@ export async function getTransaction(transactionId: string): Promise<Transaction
       date: data.date.toDate(),
       paymentMethod: data.paymentMethod,
       status: data.status,
+      isPossible: data.isPossible,
       patientId: data.patientId,
       appointmentId: data.appointmentId,
       notes: data.notes,
@@ -189,30 +192,46 @@ export async function deleteTransaction(transactionId: string): Promise<void> {
 
 /**
  * Calcular balance del mes (ingresos - egresos)
+ * Incluye cálculo de ingresos brutos (oficiales + posibles) y netos (solo oficiales)
  */
 export async function getMonthlyBalance(
   dentistId: string,
   year: number,
   month: number
-): Promise<{ income: number; expenses: number; balance: number }> {
+): Promise<{ 
+  grossIncome: number; // Ingresos brutos (oficiales + posibles)
+  netIncome: number;   // Ingresos netos (solo oficiales/concretados)
+  expenses: number; 
+  balance: number 
+}> {
   try {
     const transactions = await getTransactionsByMonth(dentistId, year, month)
     
-    const income = transactions
-      .filter(t => t.type === 'income' && t.status === 'paid')
+    // Ingresos netos: solo ingresos oficiales pagados (no posibles)
+    const netIncome = transactions
+      .filter(t => t.type === 'income' && t.status === 'paid' && !t.isPossible)
       .reduce((sum, t) => sum + t.amount, 0)
+    
+    // Ingresos posibles: ingresos marcados como posibles
+    const possibleIncome = transactions
+      .filter(t => t.type === 'income' && t.isPossible === true)
+      .reduce((sum, t) => sum + t.amount, 0)
+    
+    // Ingresos brutos: suma de ingresos netos + ingresos posibles
+    const grossIncome = netIncome + possibleIncome
     
     const expenses = transactions
       .filter(t => t.type === 'expense' && t.status === 'paid')
       .reduce((sum, t) => sum + t.amount, 0)
     
     return {
-      income,
+      grossIncome,
+      netIncome,
       expenses,
-      balance: income - expenses
+      balance: netIncome - expenses // El balance se calcula con ingresos netos
     }
   } catch (error) {
     console.error('Error al calcular balance:', error)
-    return { income: 0, expenses: 0, balance: 0 }
+    return { grossIncome: 0, netIncome: 0, expenses: 0, balance: 0 }
   }
 }

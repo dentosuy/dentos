@@ -21,7 +21,7 @@ export default function FinancesPage() {
   const { user } = useAuth()
   const toast = useToast()
   const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [monthlyBalance, setMonthlyBalance] = useState({ income: 0, expenses: 0, balance: 0 })
+  const [monthlyBalance, setMonthlyBalance] = useState({ grossIncome: 0, netIncome: 0, expenses: 0, balance: 0 })
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -188,15 +188,32 @@ export default function FinancesPage() {
             </h2>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Ingresos */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Ingreso Bruto */}
+            <Card className="border-yellow-200 bg-yellow-50">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-yellow-700 mb-1 font-medium">Ingreso Bruto</p>
+                    <p className="text-2xl font-bold text-yellow-600">
+                      ${monthlyBalance.grossIncome.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-yellow-100 rounded-full">
+                    <TrendingUp className="w-6 h-6 text-yellow-600" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Ingresos Netos */}
             <Card>
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Ingresos</p>
+                    <p className="text-sm text-gray-600 mb-1">Ingresos Netos</p>
                     <p className="text-2xl font-bold text-green-600">
-                      ${monthlyBalance.income.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                      ${monthlyBalance.netIncome.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                     </p>
                   </div>
                   <div className="p-3 bg-green-100 rounded-full">
@@ -282,6 +299,11 @@ export default function FinancesPage() {
               <Link href="/finances/income/new">
                 <Button className="bg-green-600 hover:bg-green-700">+ Registrar Ingreso</Button>
               </Link>
+              <Link href="/finances/possible-income/new">
+                <Button className="bg-yellow-500 hover:bg-yellow-600 text-white">
+                  ⚡ Registrar Posible Ingreso
+                </Button>
+              </Link>
               <Link href="/finances/expense/new">
                 <Button variant="outline" className="border-red-600 text-red-600 hover:bg-red-50">
                   + Registrar Egreso
@@ -338,6 +360,11 @@ export default function FinancesPage() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <h4 className="font-medium text-gray-900">{transaction.concept}</h4>
+                          {transaction.isPossible && (
+                            <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-medium rounded">
+                              Posible
+                            </span>
+                          )}
                           <span className="text-xs text-gray-500">• {transaction.category}</span>
                           {editingTransactionId === transaction.id ? (
                             <div className="flex items-center gap-2">

@@ -9,7 +9,8 @@ import { Pagination } from '@/components/ui/pagination'
 import { useAuth } from '@/contexts/auth-context'
 import { useToast } from '@/components/ui/toast'
 import { usePagination } from '@/hooks/use-pagination'
-import { getPatients, markMonthlyPaymentAsPaid, markMonthlyPaymentAsUnpaid, hasPatientPaidThisMonth } from '@/lib/patients'
+import { getPatients, markMonthlyPaymentAsPaid, markMonthlyPaymentAsUnpaid, hasPatientPaidThisMonth, updatePatient } from '@/lib/patients'
+import { addTransaction } from '@/lib/transactions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
@@ -27,6 +28,8 @@ export default function PatientsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null)
   const [updatingPayment, setUpdatingPayment] = useState<string | null>(null)
+  const [editingPrice, setEditingPrice] = useState<string | null>(null)
+  const [tempPrice, setTempPrice] = useState<string>('')
 
   // Obtener grupos únicos con cantidad de pacientes y estadísticas de pago
   const groups = patients.reduce((acc, patient) => {
@@ -54,11 +57,35 @@ export default function PatientsPage() {
       const isPaid = hasPatientPaidThisMonth(patient)
       
       if (isPaid) {
+        // Desmarcar como pagado
         await markMonthlyPaymentAsUnpaid(patient.id)
         toast.success(`Mensualidad marcada como NO pagada`)
       } else {
+        // Marcar como pagado
+        
+        // Verificar que tenga precio de mensualidad configurado
+        if (!patient.monthlyPrice || patient.monthlyPrice <= 0) {
+          toast.error('Este paciente no tiene un precio de mensualidad configurado')
+          setUpdatingPayment(null)
+          return
+        }
+        
+        // Crear transacción de ingreso en finanzas
+        await addTransaction(user!.uid, {
+          type: 'income',
+          concept: `Mensualidad - ${patient.firstName} ${patient.lastName} (${patient.groupName})`,
+          amount: patient.monthlyPrice,
+          category: 'mensualidad',
+          date: new Date(),
+          paymentMethod: 'cash', // Por defecto efectivo
+          status: 'paid', // Pagado para que se sume a ingresos netos
+          patientId: patient.id,
+          notes: `Pago de mensualidad del grupo: ${patient.groupName}`
+        })
+        
+        // Marcar mensualidad como pagada
         await markMonthlyPaymentAsPaid(patient.id)
-        toast.success(`Mensualidad marcada como pagada`)
+        toast.success(`Mensualidad registrada y agregada a finanzas`)
       }
       
       // Recargar pacientes
@@ -70,6 +97,47 @@ export default function PatientsPage() {
     } finally {
       setUpdatingPayment(null)
     }
+  }
+
+  // Función para actualizar el precio de mensualidad
+  const handleUpdateMonthlyPrice = async (patientId: string) => {
+    const price = parseFloat(tempPrice)
+    
+    if (isNaN(price) || price < 0) {
+      toast.error('El precio debe ser un número válido')
+      return
+    }
+
+    try {
+      await updatePatient(patientId, { monthlyPrice: price })
+      
+      // Recargar pacientes
+      const data = await getPatients(user!.uid)
+      setPatients(data)
+      
+      setEditingPrice(null)
+      setTempPrice('')
+      toast.success('Precio de mensualidad actualizado')
+    } catch (error) {
+      console.error('Error al actualizar precio:', error)
+      toast.error('Error al actualizar el precio')
+    }
+  }
+
+  // Función para iniciar edición de precio
+  const startEditingPrice = (patient: Patient, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setEditingPrice(patient.id)
+    setTempPrice(patient.monthlyPrice?.toString() || '')
+  }
+
+  // Función para cancelar edición de precio
+  const cancelEditingPrice = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setEditingPrice(null)
+    setTempPrice('')
   }
 
   // Filtrar pacientes por búsqueda y grupo seleccionado
@@ -216,36 +284,77 @@ export default function PatientsPage() {
                   <div className="divide-y divide-gray-200">
                     {filteredPatients.map((patient) => {
                       const isPaid = hasPatientPaidThisMonth(patient)
+                      const isEditingThisPrice = editingPrice === patient.id
+                      
                       return (
                         <div
                           key={patient.id}
-                          className="p-4 hover:bg-gray-50 transition-colors flex items-center justify-between"
+                          className="p-4 hover:bg-gray-50 transition-colors flex items-center justify-between gap-4"
                         >
-                          <Link
-                            href={`/patients/${patient.id}`}
-                            className="flex-1"
-                          >
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <h4 className="text-base font-semibold text-gray-900">
-                                  {patient.firstName} {patient.lastName}
-                                </h4>
-                                <div className="flex gap-4 mt-1 text-sm text-gray-600">
-                                  <span>📧 {patient.email || 'Sin email'}</span>
-                                  <span>📱 {patient.phone}</span>
-                                </div>
-                              </div>
-                              <span className="text-primary-600 hover:text-primary-800 mr-4">
-                                Ver detalles →
-                              </span>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-base font-semibold text-gray-900 truncate">
+                              {patient.firstName} {patient.lastName}
+                            </h4>
+                            <div className="flex gap-4 mt-1 text-sm text-gray-600">
+                              <span className="truncate">📧 {patient.email || 'Sin email'}</span>
+                              <span className="whitespace-nowrap">📱 {patient.phone}</span>
                             </div>
-                          </Link>
+                          </div>
+                          
+                          {/* Sección de precio de mensualidad */}
+                          <div className="flex items-center gap-2">
+                            {isEditingThisPrice ? (
+                              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                <div className="relative">
+                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={tempPrice}
+                                    onChange={(e) => setTempPrice(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        handleUpdateMonthlyPrice(patient.id)
+                                      } else if (e.key === 'Escape') {
+                                        cancelEditingPrice(e as any)
+                                      }
+                                    }}
+                                    className="w-28 px-3 py-2 pl-7 border border-primary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                                    placeholder="0.00"
+                                    autoFocus
+                                  />
+                                </div>
+                                <button
+                                  onClick={() => handleUpdateMonthlyPrice(patient.id)}
+                                  className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+                                >
+                                  ✓
+                                </button>
+                                <button
+                                  onClick={cancelEditingPrice}
+                                  className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium"
+                                >
+                                  ✗
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={(e) => startEditingPrice(patient, e)}
+                                className="px-4 py-2 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg font-medium transition-colors text-sm whitespace-nowrap"
+                              >
+                                {patient.monthlyPrice 
+                                  ? `$ ${patient.monthlyPrice.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
+                                  : '+ Agregar precio'}
+                              </button>
+                            )}
+                          </div>
                           
                           {/* Indicador de pago clickeable */}
                           <button
                             onClick={(e) => togglePaymentStatus(patient, e)}
                             disabled={updatingPayment === patient.id}
-                            className={`ml-4 px-4 py-2 rounded-lg font-medium transition-all ${
+                            className={`px-4 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${
                               isPaid
                                 ? 'bg-green-100 text-green-700 hover:bg-green-200'
                                 : 'bg-red-100 text-red-700 hover:bg-red-200'

@@ -51,6 +51,7 @@ export interface Patient {
   address?: string
   medicalHistory?: string
   groupName?: string // Nombre del grupo al que pertenece (ej: "Colegio San José")
+  monthlyPrice?: number // Precio de la mensualidad para pacientes de grupos
   lastMonthlyPayment?: Date // Fecha del último pago de mensualidad (para grupos)
   createdAt: Date
   updatedAt: Date
@@ -147,6 +148,7 @@ export interface Transaction {
   date: Date
   paymentMethod: 'cash' | 'card' | 'transfer' | 'other'
   status: 'paid' | 'pending' | 'partial'
+  isPossible?: boolean // Para ingresos posibles (no concretados aún pero probables)
   
   // Referencias opcionales
   patientId?: string
@@ -228,6 +230,7 @@ export interface BudgetPayment {
   date: Date
   treatment: string // Tratamiento realizado
   amount: number // Monto entregado/pagado
+  transactionId?: string // ID de la transacción en finanzas (para evitar duplicados)
 }
 
 /**

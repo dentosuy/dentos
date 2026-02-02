@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { getPatient } from '@/lib/patients'
 import { getMedicalHistory, saveMedicalHistory } from '@/lib/medical-history'
+import { addTransaction } from '@/lib/transactions'
 import { useAuth } from '@/contexts/auth-context'
 import { useToast } from '@/components/ui/toast'
 import type { Patient, MedicalHistory, BudgetPayment } from '@/types'
@@ -377,10 +378,46 @@ export default function MedicalHistoryPage() {
 
     try {
       setSavingBudget(true)
-      // Guardar solo los campos de presupuesto
+      
+      // Crear transacciones de ingreso para pagos nuevos (que no tienen transactionId)
+      const updatedPayments = await Promise.all(
+        (history.budgetPayments || []).map(async (payment) => {
+          // Si el pago ya tiene transactionId, no crear uno nuevo
+          if (payment.transactionId || payment.amount <= 0) {
+            return payment
+          }
+          
+          try {
+            // Crear transacción de ingreso en finanzas
+            const transaction = await addTransaction(user.uid, {
+              type: 'income',
+              concept: `Pago de tratamiento: ${payment.treatment || 'Sin especificar'}`,
+              amount: payment.amount,
+              category: 'tratamiento',
+              date: payment.date,
+              paymentMethod: 'cash', // Por defecto efectivo
+              status: 'paid', // Los pagos del presupuesto son siempre pagados
+              patientId: patientId,
+              notes: `Pago registrado en historia clínica - Paciente: ${patient?.firstName} ${patient?.lastName}`
+            })
+            
+            // Retornar el pago con el transactionId
+            return {
+              ...payment,
+              transactionId: transaction.id
+            }
+          } catch (error) {
+            console.error('Error al crear transacción para pago:', error)
+            // Si falla, retornar el pago sin transactionId
+            return payment
+          }
+        })
+      )
+      
+      // Guardar presupuesto con los transactionIds actualizados
       await saveMedicalHistory(user.uid, patientId, {
         budgetAmount: history.budgetAmount,
-        budgetPayments: history.budgetPayments,
+        budgetPayments: updatedPayments,
       })
       
       // Recargar la historia clínica completa desde Firestore para asegurar que los datos estén sincronizados
@@ -389,7 +426,7 @@ export default function MedicalHistoryPage() {
         setHistory(updatedHistory)
       }
       
-      toast.success('Presupuesto guardado exitosamente')
+      toast.success('Presupuesto guardado exitosamente y registrado en finanzas')
     } catch (error) {
       console.error('Error al guardar presupuesto:', error)
       toast.error('Error al guardar presupuesto')
