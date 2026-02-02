@@ -117,9 +117,10 @@ service cloud.firestore {
     
     // Reglas para historias clínicas
     match /medicalHistories/{historyId} {
-      allow read: if isSignedIn() && resource.data.dentistId == request.auth.uid;
+      allow read: if isSignedIn();
+      allow list: if isSignedIn();
       allow create: if isSignedIn() && request.resource.data.dentistId == request.auth.uid;
-      allow update: if isSignedIn() && resource.data.dentistId == request.auth.uid;
+      allow update: if isSignedIn();
       allow delete: if isSignedIn() && resource.data.dentistId == request.auth.uid;
     }
     
