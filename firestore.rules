@@ -22,7 +22,7 @@ service cloud.firestore {
       let data = request.resource.data;
       return data.keys().hasAll(['firstName', 'lastName', 'phone', 'dateOfBirth', 'dentistId'])
         && data.firstName is string && data.firstName.size() >= 2 && data.firstName.size() <= 100
-        && data.lastName is string && data.lastName.size() >= 2 && data.lastName.size() <= 100
+        && data.lastName is string && data.lastName.size() <= 100
         && data.phone is string && data.phone.size() >= 7 && data.phone.size() <= 20
         && data.dateOfBirth is timestamp
         && data.dentistId is string;
