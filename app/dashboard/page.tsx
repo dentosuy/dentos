@@ -225,6 +225,22 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
             </a>
+
+            <a href="/backup">
+              <Card className="hover:shadow-lg transition-shadow cursor-pointer border-2 border-primary-200 bg-primary-50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-primary-900">
+                    <span className="text-2xl">🔐</span>
+                    Backup
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-primary-700 font-medium">
+                    Protege tu información con copias de seguridad
+                  </p>
+                </CardContent>
+              </Card>
+            </a>
           </div>
 
           {/* Info adicional */}
