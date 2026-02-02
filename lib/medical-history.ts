@@ -25,13 +25,22 @@ export async function saveMedicalHistory(
   historyData: Partial<Omit<MedicalHistory, 'id' | 'dentistId' | 'patientId' | 'createdAt' | 'updatedAt'>>
 ): Promise<MedicalHistory> {
   try {
+    // Convertir fechas de budgetPayments a Timestamp si existen
+    const processedData: any = { ...historyData }
+    if (processedData.budgetPayments) {
+      processedData.budgetPayments = processedData.budgetPayments.map((payment: any) => ({
+        ...payment,
+        date: payment.date instanceof Date ? Timestamp.fromDate(payment.date) : payment.date
+      }))
+    }
+
     // Verificar si ya existe una historia clínica para este paciente
     const existing = await getMedicalHistory(patientId)
 
     if (existing) {
       // Actualizar existente
       await updateDoc(doc(db, 'medicalHistories', existing.id), {
-        ...historyData,
+        ...processedData,
         updatedAt: serverTimestamp(),
       })
 
@@ -61,13 +70,18 @@ export async function saveMedicalHistory(
         definitiveDiagnosis: data!.definitiveDiagnosis,
         treatmentPlan: data!.treatmentPlan,
         prognosis: data!.prognosis,
+        budgetAmount: data!.budgetAmount,
+        budgetPayments: data!.budgetPayments?.map((p: any) => ({
+          ...p,
+          date: p.date?.toDate?.() || p.date
+        })),
         createdAt: data!.createdAt?.toDate() || new Date(),
         updatedAt: data!.updatedAt?.toDate() || new Date(),
       }
     } else {
       // Crear nueva
       const historyRef = await addDoc(collection(db, 'medicalHistories'), {
-        ...historyData,
+        ...processedData,
         dentistId,
         patientId,
         createdAt: serverTimestamp(),
@@ -100,6 +114,11 @@ export async function saveMedicalHistory(
         definitiveDiagnosis: data!.definitiveDiagnosis,
         treatmentPlan: data!.treatmentPlan,
         prognosis: data!.prognosis,
+        budgetAmount: data!.budgetAmount,
+        budgetPayments: data!.budgetPayments?.map((p: any) => ({
+          ...p,
+          date: p.date?.toDate?.() || p.date
+        })),
         createdAt: data!.createdAt?.toDate() || new Date(),
         updatedAt: data!.updatedAt?.toDate() || new Date(),
       }
@@ -153,6 +172,11 @@ export async function getMedicalHistory(patientId: string): Promise<MedicalHisto
       definitiveDiagnosis: data.definitiveDiagnosis,
       treatmentPlan: data.treatmentPlan,
       prognosis: data.prognosis,
+      budgetAmount: data.budgetAmount,
+      budgetPayments: data.budgetPayments?.map((p: any) => ({
+        ...p,
+        date: p.date?.toDate?.() || p.date
+      })),
       createdAt: data.createdAt?.toDate() || new Date(),
       updatedAt: data.updatedAt?.toDate() || new Date(),
     }

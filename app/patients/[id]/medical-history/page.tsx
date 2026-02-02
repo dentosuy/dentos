@@ -11,9 +11,9 @@ import { Label } from '@/components/ui/label'
 import { getPatient } from '@/lib/patients'
 import { getMedicalHistory, saveMedicalHistory } from '@/lib/medical-history'
 import { useAuth } from '@/contexts/auth-context'
-import type { Patient, MedicalHistory } from '@/types'
+import type { Patient, MedicalHistory, BudgetPayment } from '@/types'
 import Link from 'next/link'
-import { ArrowLeft, Save, FileText } from 'lucide-react'
+import { ArrowLeft, Save, FileText, Plus, Trash2 } from 'lucide-react'
 
 // SVG Components para cada tipo de diente
 const IncisorSVG = ({ fillColor }: { fillColor: string }) => (
@@ -318,6 +318,8 @@ export default function MedicalHistoryPage() {
     smokingHabit: 'no',
     alcoholConsumption: 'no',
     bruxism: false,
+    budgetAmount: undefined,
+    budgetPayments: [],
   })
 
   useEffect(() => {
@@ -374,6 +376,45 @@ export default function MedicalHistoryPage() {
       ...history,
       [field]: currentArray.filter((_, i) => i !== index)
     })
+  }
+
+  // Funciones para manejar presupuesto
+  const addBudgetPayment = () => {
+    const newPayment: BudgetPayment = {
+      id: Date.now().toString(),
+      date: new Date(),
+      treatment: '',
+      amount: 0
+    }
+    setHistory({
+      ...history,
+      budgetPayments: [...(history.budgetPayments || []), newPayment]
+    })
+  }
+
+  const updateBudgetPayment = (id: string, field: keyof BudgetPayment, value: any) => {
+    const payments = history.budgetPayments || []
+    const updatedPayments = payments.map(payment => 
+      payment.id === id ? { ...payment, [field]: value } : payment
+    )
+    setHistory({
+      ...history,
+      budgetPayments: updatedPayments
+    })
+  }
+
+  const removeBudgetPayment = (id: string) => {
+    setHistory({
+      ...history,
+      budgetPayments: (history.budgetPayments || []).filter(p => p.id !== id)
+    })
+  }
+
+  const calculateBalance = (upToIndex: number): number => {
+    const budgetAmount = history.budgetAmount || 0
+    const payments = history.budgetPayments || []
+    const totalPaid = payments.slice(0, upToIndex + 1).reduce((sum, p) => sum + (p.amount || 0), 0)
+    return budgetAmount - totalPaid
   }
 
   if (loading) {
@@ -717,7 +758,7 @@ export default function MedicalHistoryPage() {
             <CardContent>
               <OdontogramComponent
                 odontogram={history.odontogram || {}}
-                onChange={(newOdontogram) => setHistory({ ...history, odontogram: newOdontogram })}
+                onChange={(newOdontogram) => setHistory({ ...history, odontogram: newOdontogram as any })}
               />
             </CardContent>
           </Card>
@@ -785,6 +826,133 @@ export default function MedicalHistoryPage() {
                   <option value="poor">Malo</option>
                   <option value="hopeless">Sin esperanza</option>
                 </select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* PRESUPUESTO */}
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <CardTitle>Presupuesto:</CardTitle>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={addBudgetPayment}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Agregar Fila
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Monto del presupuesto */}
+              <div className="mb-4">
+                <Label htmlFor="budgetAmount">Monto Total del Presupuesto</Label>
+                <div className="relative max-w-xs">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                  <Input
+                    id="budgetAmount"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={history.budgetAmount || ''}
+                    onChange={(e) => setHistory({ ...history, budgetAmount: parseFloat(e.target.value) || 0 })}
+                    className="pl-7"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
+              {/* Tabla de pagos */}
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="border-b-2 border-gray-300">
+                      <th className="text-left py-3 px-4 bg-gray-50 font-semibold text-gray-700">Fecha</th>
+                      <th className="text-left py-3 px-4 bg-gray-50 font-semibold text-gray-700">Tratamiento Realizado</th>
+                      <th className="text-right py-3 px-4 bg-gray-50 font-semibold text-gray-700">Entrega</th>
+                      <th className="text-right py-3 px-4 bg-gray-50 font-semibold text-gray-700">Saldo</th>
+                      <th className="text-center py-3 px-4 bg-gray-50 font-semibold text-gray-700">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {!history.budgetPayments || history.budgetPayments.length === 0 ? (
+                      <tr className="border-b border-gray-200">
+                        <td className="py-6 px-4 text-gray-500 text-center" colSpan={5}>
+                          No hay registros de presupuesto aún. Haz clic en "Agregar Fila" para comenzar.
+                        </td>
+                      </tr>
+                    ) : (
+                      history.budgetPayments.map((payment, index) => (
+                        <tr key={payment.id} className="border-b border-gray-200 hover:bg-gray-50">
+                          <td className="py-2 px-4">
+                            <Input
+                              type="date"
+                              value={payment.date instanceof Date ? payment.date.toISOString().split('T')[0] : ''}
+                              onChange={(e) => updateBudgetPayment(payment.id, 'date', new Date(e.target.value))}
+                              className="w-full"
+                            />
+                          </td>
+                          <td className="py-2 px-4">
+                            <Input
+                              type="text"
+                              value={payment.treatment}
+                              onChange={(e) => updateBudgetPayment(payment.id, 'treatment', e.target.value)}
+                              placeholder="Descripción del tratamiento..."
+                              className="w-full"
+                            />
+                          </td>
+                          <td className="py-2 px-4">
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={payment.amount || ''}
+                                onChange={(e) => updateBudgetPayment(payment.id, 'amount', parseFloat(e.target.value) || 0)}
+                                className="w-full pl-7 text-right"
+                                placeholder="0.00"
+                              />
+                            </div>
+                          </td>
+                          <td className="py-2 px-4 text-right font-semibold">
+                            <span className={calculateBalance(index) >= 0 ? 'text-green-600' : 'text-red-600'}>
+                              ${calculateBalance(index).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </td>
+                          <td className="py-2 px-4 text-center">
+                            <button
+                              onClick={() => removeBudgetPayment(payment.id)}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Eliminar fila"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                  {history.budgetPayments && history.budgetPayments.length > 0 && (
+                    <tfoot>
+                      <tr className="bg-gray-100 font-bold">
+                        <td colSpan={2} className="py-3 px-4 text-right">Total:</td>
+                        <td className="py-3 px-4 text-right">
+                          ${(history.budgetPayments.reduce((sum, p) => sum + (p.amount || 0), 0)).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <span className={calculateBalance(history.budgetPayments.length - 1) >= 0 ? 'text-green-600' : 'text-red-600'}>
+                            ${calculateBalance(history.budgetPayments.length - 1).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
               </div>
             </CardContent>
           </Card>

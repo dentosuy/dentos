@@ -209,9 +209,23 @@ export interface MedicalHistory {
   treatmentPlan?: string
   prognosis?: 'excellent' | 'good' | 'fair' | 'poor' | 'hopeless'
   
+  // Presupuesto y pagos
+  budgetAmount?: number // Monto total del presupuesto
+  budgetPayments?: BudgetPayment[] // Historial de pagos
+  
   // Metadata
   createdAt: Date
   updatedAt: Date
+}
+
+/**
+ * Registro de pago en el presupuesto
+ */
+export interface BudgetPayment {
+  id: string
+  date: Date
+  treatment: string // Tratamiento realizado
+  amount: number // Monto entregado/pagado
 }
 
 /**
