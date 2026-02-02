@@ -51,6 +51,7 @@ export interface Patient {
   address?: string
   medicalHistory?: string
   groupName?: string // Nombre del grupo al que pertenece (ej: "Colegio San José")
+  lastMonthlyPayment?: Date // Fecha del último pago de mensualidad (para grupos)
   createdAt: Date
   updatedAt: Date
 }

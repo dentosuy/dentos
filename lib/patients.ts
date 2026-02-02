@@ -43,6 +43,8 @@ export async function addPatient(
       dateOfBirth: data!.dateOfBirth.toDate(),
       address: data!.address,
       medicalHistory: data!.medicalHistory,
+      groupName: data!.groupName,
+      lastMonthlyPayment: data!.lastMonthlyPayment?.toDate(),
       createdAt: data!.createdAt.toDate(),
       updatedAt: data!.updatedAt.toDate(),
     }
@@ -76,6 +78,8 @@ export async function getPatients(dentistId: string): Promise<Patient[]> {
         dateOfBirth: data.dateOfBirth.toDate(),
         address: data.address,
         medicalHistory: data.medicalHistory,
+        groupName: data.groupName,
+        lastMonthlyPayment: data.lastMonthlyPayment?.toDate(),
         createdAt: data.createdAt?.toDate() || new Date(),
         updatedAt: data.updatedAt?.toDate() || new Date(),
       }
@@ -112,6 +116,8 @@ export async function getPatient(patientId: string): Promise<Patient | null> {
       dateOfBirth: data.dateOfBirth.toDate(),
       address: data.address,
       medicalHistory: data.medicalHistory,
+      groupName: data.groupName,
+      lastMonthlyPayment: data.lastMonthlyPayment?.toDate(),
       createdAt: data.createdAt.toDate(),
       updatedAt: data.updatedAt.toDate(),
     }
@@ -155,6 +161,51 @@ export async function deletePatient(patientId: string): Promise<void> {
     console.error('Error al eliminar paciente:', error)
     throw new Error('No se pudo eliminar el paciente')
   }
+}
+
+/**
+ * Marcar mensualidad como pagada (establece fecha actual)
+ */
+export async function markMonthlyPaymentAsPaid(patientId: string): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'patients', patientId), {
+      lastMonthlyPayment: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    })
+  } catch (error) {
+    console.error('Error al marcar pago mensual:', error)
+    throw new Error('No se pudo actualizar el estado de pago')
+  }
+}
+
+/**
+ * Marcar mensualidad como NO pagada (elimina fecha de pago)
+ */
+export async function markMonthlyPaymentAsUnpaid(patientId: string): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'patients', patientId), {
+      lastMonthlyPayment: null,
+      updatedAt: serverTimestamp(),
+    })
+  } catch (error) {
+    console.error('Error al marcar pago mensual:', error)
+    throw new Error('No se pudo actualizar el estado de pago')
+  }
+}
+
+/**
+ * Verificar si un paciente pagó la mensualidad del mes actual
+ */
+export function hasPatientPaidThisMonth(patient: Patient): boolean {
+  if (!patient.lastMonthlyPayment) return false
+  
+  const now = new Date()
+  const paymentDate = new Date(patient.lastMonthlyPayment)
+  
+  return (
+    paymentDate.getMonth() === now.getMonth() &&
+    paymentDate.getFullYear() === now.getFullYear()
+  )
 }
 
 /**
